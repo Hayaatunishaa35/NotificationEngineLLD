@@ -1,7 +1,7 @@
 import java.time.LocalDateTime;
 import java.util.*;
 
-// Notification and Decorators
+// Notification and Decorators - Decorator design pattern
 
 // INotification--SimpleNotification
 // INotification--INotificationDecorator
@@ -41,7 +41,7 @@ class TimeStampDecorator extends INotificationDecorator{
 
     @Override
     public String getContent(){
-        String time = LocalDateTime.now().format(null);
+        String time = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         return time + " " + notification.getContent();
     }
 }
@@ -58,10 +58,9 @@ class SignatureDecorator extends INotificationDecorator{
 }
 
 
-// Observer pattern component
-// IObservable, IObserver
+// IObservable, IObserver - Observer Design pattern 
 // IObservable--NotificationObservable
-// Iobserver--Logger
+// Iobserver--Logger, NotificationEngine
 
 interface IObservable{
     void addObserver(IObserver observer);
@@ -93,6 +92,11 @@ class NotificationObservable implements IObservable{
         for(IObserver observer:observers){
             observer.update();
         }
+    }
+
+    public void setNotification(INotification notification){
+        currentNotification = notification;
+        notifyObserver();
     }
 
     public INotification getNotification(){
@@ -141,7 +145,7 @@ class NotificationEngine implements IObserver{
 }
 
 
-// Notification Strategies -- Singleton 
+// Notification Strategies -- Strategy design pattern
 // Email, sms, popup
 
 interface INotificationStrategy{
@@ -184,12 +188,59 @@ class PopUpStrategy implements INotificationStrategy{
 
 
 // Notification Service -- Interacting directly with the client/ user
+// Singleton class
 class NotificationService{
-    
+    private NotificationObservable observable;
+    private static NotificationService instance;
+    private List<INotification> notifications;
+
+    private NotificationService(){
+        observable = new NotificationObservable();
+        notifications = new ArrayList<>();
+    }
+
+    public static NotificationService getInstance(){
+        if(instance==null){
+            instance = new NotificationService();
+        }
+        return instance;
+    }
+
+    public NotificationObservable getObservable(){
+        return observable;
+    }
+
+    public void sendNotification(INotification notification){
+        notifications.add(notification);
+        observable.setNotification(notification);
+    }
 }
 
 public class NotificationSystem {
     public static void main(String[] args) {
+        // create notification service
+        NotificationService notificationService = NotificationService.getInstance();
 
+        // Observable
+        NotificationObservable observable = notificationService.getObservable();
+
+        // Observers
+        Logger logger = new Logger(observable);
+        NotificationEngine notificationEngine = new NotificationEngine(observable);
+
+        notificationEngine.addNotificationStrategy(new EmailStrategy("hayat123@gmail.com"));
+        notificationEngine.addNotificationStrategy(new SMSStrategy("99999999999"));
+        notificationEngine.addNotificationStrategy(new PopUpStrategy());
+
+        // subscribe the observable through observers
+        observable.addObserver(logger);
+        observable.addObserver(notificationEngine);
+
+        // Create notifications and wrap decorators
+        INotification notification = new SimpleNotification("Notification system design is ready");
+        notification = new TimeStampDecorator(notification);
+        notification = new SignatureDecorator(notification);
+
+        notificationService.sendNotification(notification);
     }
 }
